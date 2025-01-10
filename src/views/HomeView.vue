@@ -12,13 +12,17 @@
         class="absolute bg-weather-secondary text-white w-full shadow-md p-2 top-[66px]"
         v-if="searchResults"
       >
-        <li 
-          v-for="searchResult in searchResults" 
-          :key="searchResult.local_name"
-          class="py-2 cursor-pointer"
-        >
-        {{ searchResult.local_name }} ({{ searchResult.state }}, {{ searchResult.country }})
-        </li>
+        <p v-if="searchError">Something went wrong, please try again.</p>
+        <p v-if="!serverError && searchResults.length === 0">No result match your query</p>
+        <template v-else>
+          <li
+            v-for="searchResult in searchResults"
+            :key="searchResult.local_name"
+            class="py-2 cursor-pointer"
+          >
+          {{ searchResult.local_name }} ({{ searchResult.state }}, {{ searchResult.country }})
+          </li>
+        </template>
       </ul>
     </div>
   </main>
@@ -33,6 +37,7 @@ const APIKey = '4c3399e8149d460dc52d068469f89c91';
 const searchQuery = ref('');
 const queryTimeout = ref(null);
 const searchResults = ref(null);
+const searchError = ref(null);
 
 const getSearchResults = () => {
   clearTimeout(queryTimeout.value);
@@ -48,7 +53,7 @@ const getSearchResults = () => {
         console.log(searchResults.value); // Debugging response
       } catch (error) {
         console.error("Error fetching weather data:", error);
-        searchResults.value = null;
+        searchError.value = true;
       }
     } else {
       searchResults.value = null; // Clear results if the search query is empty
