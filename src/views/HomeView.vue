@@ -4,9 +4,22 @@
       <input 
         type="text"
         v-model="searchQuery" 
+        @input="getSearchResults"
         placeholder="Search for a city" 
         class="w-full p-2 bg-transparent border-b focus:border-weather-secondary focus:outline-none focus:shadow-[0px_1px_0_0_#004E71] text-white" 
       />
+      <ul 
+        class="absolute bg-weather-secondary text-white w-full shadow-md p-2 top-[66px]"
+        v-if="searchResults"
+      >
+        <li 
+          v-for="searchResult in searchResults" 
+          :key="searchResult.local_name"
+          class="py-2 cursor-pointer"
+        >
+        {{ searchResult.local_name }} ({{ searchResult.state }}, {{ searchResult.country }})
+        </li>
+      </ul>
     </div>
   </main>
 </template>
@@ -15,20 +28,31 @@
 import { ref } from 'vue';
 import axios from 'axios';
 
-const mapboxAPIKey = 'pk.eyJ1Ijoiam9obmtvbWFybmlja2kiLCJhIjoiY2t5NjFz0DZvMHJkaDJ1bWx60GVieGxreSJ9.IpojdT3U3NENKnF6_WhR2Q';
+const APIKey = '4c3399e8149d460dc52d068469f89c91';
 
 const searchQuery = ref('');
 const queryTimeout = ref(null);
-const mapboxSearchResults = ref(null);
+const searchResults = ref(null);
 
 const getSearchResults = () => {
+  clearTimeout(queryTimeout.value);
   queryTimeout.value = setTimeout(async () => {
     if (searchQuery.value !== '') {
-      const result = await axios.get(`https://api.mapbox.com/geocoding/v5/mapbox.places/${searchQuery.value}.json?access_token=${mapboxAPIKey}`);
-      mapboxSearchResults.value = result.data.features;
-      return;
+      try {
+        const result = await axios.get(`http://api.openweathermap.org/geo/1.0/direct?q=${searchQuery.value}&limit=5&appid=${APIKey}`);
+        searchResults.value = result.data.map((place) => ({
+          local_name: place.name,
+          country: place.country,
+          state: place.state,
+        }));
+        console.log(searchResults.value); // Debugging response
+      } catch (error) {
+        console.error("Error fetching weather data:", error);
+        searchResults.value = null;
+      }
+    } else {
+      searchResults.value = null; // Clear results if the search query is empty
     }
-    mapboxSearchResults.value = null;
-  }, 300);
+  }, 500);
 };
 </script>
