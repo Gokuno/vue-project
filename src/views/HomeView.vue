@@ -19,6 +19,7 @@
             v-for="searchResult in searchResults"
             :key="searchResult.local_name"
             class="py-2 cursor-pointer"
+            @click="previewCity(searchResult)"
           >
           {{ searchResult.local_name }} ({{ searchResult.state }}, {{ searchResult.country }})
           </li>
@@ -31,8 +32,25 @@
 <script setup>
 import { ref } from 'vue';
 import axios from 'axios';
+import { useRouter } from 'vue-router';
 
-const APIKey = '4c3399e8149d460dc52d068469f89c91';
+const router = useRouter();
+const previewCity = (searchResult) => {
+  console.log(searchResult); // Debugging selected city
+  const city = searchResult.local_name;
+  const state = searchResult.state;
+  router.push({
+    name: 'cityView',
+    params: { city: city, state: state },
+    query: {
+      city: city,
+      state: state,
+      preview: true,
+    }
+  })
+};
+
+const APIKey = import.meta.env.VITE_API_KEY;
 
 const searchQuery = ref('');
 const queryTimeout = ref(null);
