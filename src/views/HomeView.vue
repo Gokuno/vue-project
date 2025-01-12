@@ -1,81 +1,95 @@
 <template>
   <main class="container text-white">
     <div class="pt-4 mb-8 relative">
-      <input 
+      <input
         type="text"
-        v-model="searchQuery" 
+        v-model="searchQuery"
         @input="getSearchResults"
-        placeholder="Search for a city" 
-        class="w-full p-2 bg-transparent border-b focus:border-weather-secondary focus:outline-none focus:shadow-[0px_1px_0_0_#004E71] text-white" 
+        placeholder="Search for a city or state"
+        class="py-2 px-1 w-full bg-transparent border-b focus:border-weather-secondary focus:outline-none focus:shadow-[0px_1px_0_0_#004E71]"
       />
-      <ul 
-        class="absolute bg-weather-secondary text-white w-full shadow-md p-2 top-[66px]"
-        v-if="searchResults"
+      <ul
+        class="absolute bg-weather-secondary text-white w-full shadow-md py-2 px-1 top-[66px]"
+        v-if="mapboxSearchResults"
       >
-        <p v-if="searchError">Something went wrong, please try again.</p>
-        <p v-if="!serverError && searchResults.length === 0">No result match your query</p>
+        <p class="py-2" v-if="searchError">
+          Sorry, something went wrong, please try again.
+        </p>
+        <p
+          class="py-2"
+          v-if="!searchError && mapboxSearchResults.length === 0"
+        >
+          No results match your query, try a different term.
+        </p>
         <template v-else>
           <li
-            v-for="searchResult in searchResults"
-            :key="searchResult.local_name"
+            v-for="searchResult in mapboxSearchResults"
+            :key="searchResult.id"
             class="py-2 cursor-pointer"
             @click="previewCity(searchResult)"
           >
-          {{ searchResult.local_name }} ({{ searchResult.state }}, {{ searchResult.country }})
+            {{ searchResult.place_name }}
           </li>
         </template>
       </ul>
     </div>
+      <div class="flex flex-col gap-4">
+        <Suspense>
+          <CityList />
+          <template #fallback>
+            <CityCardSkeleton />
+          </template>
+        </Suspense>
+      </div>
   </main>
 </template>
 
 <script setup>
-import { ref } from 'vue';
-import axios from 'axios';
-import { useRouter } from 'vue-router';
+import { ref } from "vue";
+import axios from "axios";
+import { useRouter } from "vue-router";
+import CityList from "@/components/CityList.vue";
+import CityCardSkeleton from "@/components/CityCardSkeleton.vue";
 
 const router = useRouter();
 const previewCity = (searchResult) => {
-  console.log(searchResult); // Debugging selected city
-  const city = searchResult.local_name;
-  const state = searchResult.state;
+  const [city, state] = searchResult.place_name.split(",");
   router.push({
-    name: 'cityView',
-    params: { city: city, state: state },
+    name: "cityView",
+    params: { state: state.replaceAll(" ", ""), city: city },
     query: {
-      city: city,
-      state: state,
+      lat: searchResult.geometry.coordinates[1],
+      lng: searchResult.geometry.coordinates[0],
       preview: true,
-    }
-  })
+    },
+  });
 };
 
-const APIKey = import.meta.env.VITE_API_KEY;
-
-const searchQuery = ref('');
+const mapboxAPIKey =
+  "pk.eyJ1Ijoiam9obmtvbWFybmlja2kiLCJhIjoiY2t5NjFzODZvMHJkaDJ1bWx6OGVieGxreSJ9.IpojdT3U3NENknF6_WhR2Q";
+const searchQuery = ref("");
 const queryTimeout = ref(null);
-const searchResults = ref(null);
+const mapboxSearchResults = ref(null);
 const searchError = ref(null);
 
 const getSearchResults = () => {
   clearTimeout(queryTimeout.value);
   queryTimeout.value = setTimeout(async () => {
-    if (searchQuery.value !== '') {
+    if (searchQuery.value !== "") {
       try {
-        const result = await axios.get(`http://api.openweathermap.org/geo/1.0/direct?q=${searchQuery.value}&limit=5&appid=${APIKey}`);
-        searchResults.value = result.data.map((place) => ({
-          local_name: place.name,
-          country: place.country,
-          state: place.state,
-        }));
-        console.log(searchResults.value); // Debugging response
-      } catch (error) {
-        console.error("Error fetching weather data:", error);
+        const result = await axios.get(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${searchQuery.value}.json?access_token=${mapboxAPIKey}&types=place`
+        );
+        mapboxSearchResults.value = result.data.features;
+      } catch {
         searchError.value = true;
       }
-    } else {
-      searchResults.value = null; // Clear results if the search query is empty
+
+      return;
     }
-  }, 500);
+    mapboxSearchResults.value = null;
+  }, 300);
 };
 </script>
+
+<style lang="scss" scoped></style>
