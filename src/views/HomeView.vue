@@ -10,25 +10,25 @@
       />
       <ul
         class="absolute bg-weather-secondary text-white w-full shadow-md py-2 px-1 top-[66px]"
-        v-if="mapboxSearchResults"
+        v-if="searchResults"
       >
         <p class="py-2" v-if="searchError">
           Sorry, something went wrong, please try again.
         </p>
         <p
           class="py-2"
-          v-if="!searchError && mapboxSearchResults.length === 0"
+          v-if="!searchError && searchResults.length === 0"
         >
           No results match your query, try a different term.
         </p>
         <template v-else>
           <li
-            v-for="searchResult in mapboxSearchResults"
-            :key="searchResult.id"
+            v-for="searchResult in searchResults"
+            :key="searchResult.lat +searchResult.lon"
             class="py-2 cursor-pointer"
             @click="previewCity(searchResult)"
           >
-            {{ searchResult.place_name }}
+            {{ searchResult.name }}, {{ searchResult.state }}, {{ searchResult.country }}
           </li>
         </template>
       </ul>
@@ -53,22 +53,21 @@ import CityCardSkeleton from "@/components/CityCardSkeleton.vue";
 
 const router = useRouter();
 const previewCity = (searchResult) => {
-  const [city, state] = searchResult.place_name.split(",");
   router.push({
     name: "cityView",
-    params: { state: state.replaceAll(" ", ""), city: city },
+    params: { state: searchResult.state, city: searchResult.name },
     query: {
-      lat: searchResult.geometry.coordinates[1],
-      lng: searchResult.geometry.coordinates[0],
+      lat: searchResult.lat,
+      lng: searchResult.lon,
       preview: true,
     },
   });
 };
 
-const mapboxAPIKey = import.meta.env.MAPBOX_API_KEY;
+const APIKey = import.meta.env.VITE_API_KEY;
 const searchQuery = ref("");
 const queryTimeout = ref(null);
-const mapboxSearchResults = ref(null);
+const searchResults = ref(null);
 const searchError = ref(null);
 
 const getSearchResults = () => {
@@ -77,16 +76,23 @@ const getSearchResults = () => {
     if (searchQuery.value !== "") {
       try {
         const result = await axios.get(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${searchQuery.value}.json?access_token=${mapboxAPIKey}&types=place`
+          `https://api.openweathermap.org/geo/1.0/direct?q=${searchQuery.value}&limit=5&appid=${APIKey}`
         );
-        mapboxSearchResults.value = result.data.features;
+        searchResults.value = result.data.map((item) => ({
+          name: item.name,
+          state: item.state || "Unknown",
+          country: item.country,
+          lat: item.lat,
+          lon: item.lon,
+        }));
+        searchError.value = false;
       } catch {
         searchError.value = true;
       }
 
       return;
     }
-    mapboxSearchResults.value = null;
+    searchResults.value = null;
   }, 300);
 };
 </script>
